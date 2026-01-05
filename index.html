@@ -1,35 +1,593 @@
 <!DOCTYPE html>
+
 <html lang="pt-br">
+
 <head>
+
 <meta charset="UTF-8">
-<title>Wolftv</title>
+
+<title>Wolftv Play Premium</title>
+
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link rel="icon" href="https://i.imgur.com/3ZQZLwH.png">
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+
+body, html {margin:0; padding:0; height:100%; overflow-x:hidden; font-family:Arial, Helvetica, sans-serif; color:#fff;}
+
+#video-bg {position: fixed; right:0; bottom:0; min-width:100%; min-height:100%; z-index:-1; object-fit:cover;}
+
+#login{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:999;}
+
+#login form{background:#111;padding:25px;border-radius:10px;width:320px;text-align:center;}
+
+#login input,#login button{width:100%;padding:10px;margin:6px 0;border:none;border-radius:5px;}
+
+#login button{background:#c62828;color:#fff;font-weight:bold;cursor:pointer;}
+
+#site{display:none;padding:10px;}
+
+header{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,.75);padding:10px;border-radius:8px;font-size:20px;}
+
+video#player, video#player2{width:100%;max-height:60vh;background:#000;margin-top:10px;border-radius:8px;}
+
+.lista{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:10px;}
+
+.card{background:rgba(0,0,0,.75);padding:10px;border-radius:6px;cursor:pointer;text-align:center;position:relative;}
+
+.card:hover{background:#c62828;}
+
+.card img{width:100%;border-radius:6px;margin-bottom:5px;}
+
+.card button{background:#ffeb3b;color:#000;border:none;padding:5px 8px;border-radius:5px;cursor:pointer;margin-top:3px;}
+
+button.admin-btn{background:#444;color:#fff;border:none;padding:6px 10px;border-radius:5px;cursor:pointer;margin-left:5px;}
+
+#adminPanel, #codigoPanel{display:none;margin-top:10px;background:rgba(0,0,0,.85);padding:10px;border-radius:8px;}
+
+#adminPanel input, #codigoPanel input{width:30%;padding:5px;margin:2px;border-radius:5px;border:none;}
+
+#adminPanel button, #codigoPanel button{padding:5px 10px;margin-left:3px;border-radius:5px;border:none;background:#c62828;color:#fff;cursor:pointer;}
+
+#canalTable, #codigoTable{width:100%;margin-top:10px;border-collapse:collapse;}
+
+#canalTable th, #canalTable td, #codigoTable th, #codigoTable td{padding:5px;border:1px solid #fff;text-align:left;}
+
+h3{margin-top:10px;}
+
+</style>
+
 </head>
+
 <body>
 
-<h2>🐺 Wolftv Online</h2>
+<!-- VIDEO DE FUNDO -->
 
-<video controls autoplay width="100%">
-  <source src="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8">
+<video autoplay muted loop id="video-bg">
+
+  <source src="https://piratetv.pro/wp-content/themes/Pirate%20TV%204.1v/assets/images/top-bg.mp4" type="video/mp4">
+
 </video>
 
+<!-- LOGIN -->
+
+<div id="login">
+
+<form onsubmit="return entrar()">
+
+<h2>🐺 Wolftv Play Premium</h2>
+
+<input id="email" placeholder="E-mail do usuário">
+
+<input id="codigo" type="password" placeholder="Código de ativação">
+
+<button>Entrar</button>
+
+</form>
+
+</div>
+
+<!-- SITE -->
+
+<div id="site">
+
+<header>
+
+  <span>🐺 Wolftv Play Premium</span>
+
+  <div>
+
+    <button onclick="playTodos()" class="admin-btn">▶ Play Todos</button>
+
+    <button id="trocarSenhaBtn" class="admin-btn" style="display:none;" onclick="trocarSenha()">🔒 Trocar Senha</button>
+
+    <button id="gerenciarCanaisBtn" class="admin-btn" style="display:none;" onclick="toggleAdminPanel()">📋 Gerenciar Canais</button>
+
+    <button id="gerenciarCodigosBtn" class="admin-btn" style="display:none;" onclick="toggleCodigoPanel()">🗝️ Gerenciar Códigos</button>
+
+  </div>
+
+</header>
+
+<video id="player" controls autoplay></video>
+
+<video id="player2" controls autoplay style="margin-top:20px;"></video>
+
+<div class="lista" id="lista"></div>
+
+<!-- Painel Admin -->
+
+<div id="adminPanel">
+
+  <h3>Gerenciamento de Canais</h3>
+
+  <input id="novoNome" placeholder="Nome do canal">
+
+  <input id="novoURL" placeholder="URL do canal (.m3u8 / mp4)">
+
+  <input id="novoPoster" placeholder="URL do Poster">
+
+  <input id="novaSenha18" placeholder="Senha 18+ (opcional)">
+
+  <input id="novoPremiumCodigo" placeholder="Código Premium (opcional)">
+
+  <input type="checkbox" id="novoPremium"> Canal Premium
+
+  <button onclick="adicionarCanal()">➕ Adicionar Canal</button>
+
+  <button onclick="restaurarCanais()">🔄 Restaurar Canais Originais</button>
+
+  <table id="canalTable">
+
+    <thead>
+
+      <tr><th>#</th><th>Nome</th><th>URL</th><th>Poster</th><th>Senha 18+</th><th>Premium</th><th>Código Premium</th><th>Ações</th></tr>
+
+    </thead>
+
+    <tbody></tbody>
+
+  </table>
+
+</div>
+
+<!-- Painel de Códigos -->
+
+<div id="codigoPanel">
+
+  <h3>Gerenciamento de Códigos</h3>
+
+  <input id="novoUsuario" placeholder="E-mail do usuário">
+
+  <input id="novoCodigo" placeholder="Código de ativação">
+
+  <button onclick="adicionarCodigo()">➕ Gerar Manual</button>
+
+  <button onclick="gerarCodigoRandom()">🎲 Gerar Random</button>
+
+  <button onclick="restaurarCodigos()">🔄 Restaurar Códigos Originais</button>
+
+  <table id="codigoTable">
+
+    <thead>
+
+      <tr><th>#</th><th>E-mail</th><th>Código</th><th>Ações</th></tr>
+
+    </thead>
+
+    <tbody></tbody>
+
+  </table>
+
+</div>
+
+</div>
+
+<script>
+
+const ADMIN = "admin@blogger.com";
+
+let SENHA_ADMIN = "26122025";
+
+let userLogado = null;
+
+let codigoUsuario = "";
+
+let atual=0, hls, tocandoTodos=false;
+
+// Canais padrão
+
+const CANAIS_PADRAO = [
+
+  {nome:"Record TV", url:"https://exemplo.com/record.m3u8", poster:"https://via.placeholder.com/160x90?text=Record", senha18:"", premium:false, codigoPremium:""},
+
+  {nome:"Globo", url:"https://exemplo.com/globo.m3u8", poster:"https://via.placeholder.com/160x90?text=Globo", senha18:"", premium:false, codigoPremium:""},
+
+  {nome:"SBT", url:"https://exemplo.com/sbt.m3u8", poster:"https://via.placeholder.com/160x90?text=SBT", senha18:"", premium:false, codigoPremium:""},
+
+  {nome:"Band", url:"https://exemplo.com/band.m3u8", poster:"https://via.placeholder.com/160x90?text=Band", senha18:"", premium:false, codigoPremium:""}
+
+];
+
+let canais = JSON.parse(localStorage.getItem("wolf_canais")) || JSON.parse(JSON.stringify(CANAIS_PADRAO));
+
+const CODIGOS_PADRAO = [];
+
+let codigos = JSON.parse(localStorage.getItem("wolf_codigos")) || JSON.parse(JSON.stringify(CODIGOS_PADRAO));
+
+// LOGIN
+
+function entrar(){
+
+  const email = document.getElementById("email").value.trim().toLowerCase();
+
+  const codigo = document.getElementById("codigo").value.trim();
+
+  codigoUsuario = codigo;
+
+  const now = new Date().getTime();
+
+  const today = new Date().toDateString();
+
+  if(email===ADMIN && codigo===SENHA_ADMIN){ 
+
+      userLogado=email; 
+
+      exibirSiteAdmin(); 
+
+      return false;
+
+  }
+
+  const ultimoLogin = localStorage.getItem("wolf_login_" + email);
+
+  if(ultimoLogin === today){
+
+      alert("Você já acessou hoje. Tente novamente amanhã.");
+
+      return false;
+
+  }
+
+  const encontrado = codigos.find(c=>c.email===email && c.codigo===codigo);
+
+  if(encontrado){ 
+
+      userLogado=email; 
+
+      localStorage.setItem("wolf_login_" + email, today); 
+
+      localStorage.setItem("wolf_login_time", now); 
+
+      exibirSiteUsuario(); 
+
+  } else alert("E-mail ou código incorretos"); 
+
+  return false;
+
+}
+
+// CHECAR EXPIRAÇÃO DE 2 HORAS PARA PREMIUM
+
+function checarExpiracao(){
+
+  if(userLogado===ADMIN) return false; // Admin nunca bloqueado
+
+  const loginTime = localStorage.getItem("wolf_login_time");
+
+  if(!loginTime) return false;
+
+  const now = new Date().getTime();
+
+  if(now - parseInt(loginTime) > 2*60*60*1000){ 
+
+      alert("Seu acesso Premium expirou! 🔒\nInsira o código Premium do canal ou renove seu acesso.");
+
+      return true;
+
+  }
+
+  return false;
+
+}
+
+// EXIBIÇÃO
+
+function exibirSiteAdmin(){ 
+
+  login.style.display="none"; site.style.display="block"; 
+
+  document.getElementById("trocarSenhaBtn").style.display="inline-block"; 
+
+  document.getElementById("gerenciarCanaisBtn").style.display="inline-block"; 
+
+  document.getElementById("gerenciarCodigosBtn").style.display="inline-block"; 
+
+  render(); renderTabela(); renderTabelaCodigos(); play(0);
+
+}
+
+function exibirSiteUsuario(){ 
+
+  login.style.display="none"; site.style.display="block"; 
+
+  document.getElementById("trocarSenhaBtn").style.display="none"; 
+
+  document.getElementById("gerenciarCanaisBtn").style.display="none"; 
+
+  document.getElementById("gerenciarCodigosBtn").style.display="none"; 
+
+  render(); play(0);
+
+}
+
+// TROCAR SENHA ADMIN
+
+function trocarSenha(){ 
+
+  const nova = prompt("Nova senha do administrador:"); 
+
+  if(nova && nova.length>=3){ 
+
+    SENHA_ADMIN = nova; 
+
+    alert("Senha alterada!"); 
+
+  }
+
+}
+
+// PLAYER PRINCIPAL
+
+function play(i){
+
+  const canal = canais[i];
+
+  if(userLogado !== ADMIN){
+
+    if(canal.senha18){ 
+
+      const s = prompt("Este canal é 18+. Digite a senha:"); 
+
+      if(s!==canal.senha18){ alert("Senha incorreta!"); return; } 
+
+    }
+
+    if(canal.premium){
+
+      if(checarExpiracao()) return;
+
+      const s = prompt("Este canal é Premium. Digite o código Premium:");
+
+      if(s!==canal.codigoPremium){ alert("Código Premium incorreto!"); return; }
+
+    }
+
+  }
+
+  atual=i;
+
+  const player=document.getElementById("player");
+
+  if(hls){ hls.destroy(); hls=null; }
+
+  if(canal.url.includes(".m3u8") && Hls.isSupported()){ 
+
+    hls=new Hls(); hls.loadSource(canal.url); hls.attachMedia(player); 
+
+  } else player.src=canal.url;
+
+  player.poster = canal.poster;
+
+  player.play();
+
+  if(tocandoTodos){ player.onended = ()=>{proximo();}; } else player.onended=null;
+
+}
+
+// PLAYER EXTERNO
+
+function playExterno(i){
+
+  const canal = canais[i];
+
+  if(userLogado !== ADMIN){
+
+    if(canal.senha18){ 
+
+      const s = prompt("Este canal é 18+. Digite a senha:"); 
+
+      if(s!==canal.senha18){ alert("Senha incorreta!"); return; } 
+
+    }
+
+    if(canal.premium){
+
+      if(checarExpiracao()) return;
+
+      const s = prompt("Este canal é Premium. Digite o código Premium:");
+
+      if(s!==canal.codigoPremium){ alert("Código Premium incorreto!"); return; }
+
+    }
+
+  }
+
+  const player2=document.getElementById("player2");
+
+  player2.src=canal.url;
+
+  player2.poster = canal.poster;
+
+  player2.play();
+
+}
+
+// PLAYLIST
+
+function playTodos(){ tocandoTodos=true; atual=0; play(atual); }
+
+function proximo(){ atual++; if(atual>=canais.length){ tocandoTodos=false; alert("Todos os canais terminaram!"); return; } play(atual); }
+
+// ADMIN PANEL
+
+function toggleAdminPanel(){ 
+
+  document.getElementById("adminPanel").style.display = (document.getElementById("adminPanel").style.display==="block")?"none":"block"; 
+
+}
+
+function toggleCodigoPanel(){ 
+
+  document.getElementById("codigoPanel").style.display = (document.getElementById("codigoPanel").style.display==="block")?"none":"block"; 
+
+}
+
+// GERENCIAR CANAIS
+
+function render(){
+
+  lista.innerHTML="";
+
+  canais.forEach((c,i)=>{
+
+    lista.innerHTML+=`<div class="card">
+
+      <img src="${c.poster}" alt="${c.nome}">
+
+      <div>${c.nome}</div>
+
+      <button onclick="play(${i})">▶ Player Principal</button>
+
+      <button onclick="playExterno(${i})">▶ Player Externo</button>
+
+    </div>`;
+
+  });
+
+  if(userLogado===ADMIN) renderTabela();
+
+  salvarCanais();
+
+}
+
+function renderTabela(){
+
+  const tbody=document.querySelector("#canalTable tbody"); tbody.innerHTML="";
+
+  canais.forEach((c,i)=>{
+
+    const tr=document.createElement("tr");
+
+    tr.innerHTML=`<td>${i+1}</td>
+
+      <td><input value="${c.nome}" onchange="canais[${i}].nome=this.value; salvarCanais(); render();"></td>
+
+      <td><input value="${c.url}" onchange="canais[${i}].url=this.value; salvarCanais(); render();"></td>
+
+      <td><input value="${c.poster}" onchange="canais[${i}].poster=this.value; salvarCanais(); render();"></td>
+
+      <td><input value="${c.senha18}" onchange="canais[${i}].senha18=this.value; salvarCanais(); render();"></td>
+
+      <td><input type="checkbox" ${c.premium?'checked':''} onchange="canais[${i}].premium=this.checked; salvarCanais();"></td>
+
+      <td><input value="${c.codigoPremium||''}" onchange="canais[${i}].codigoPremium=this.value; salvarCanais();"></td>
+
+      <td><button onclick="remover(${i})">🗑️</button></td>`;
+
+    tbody.appendChild(tr);
+
+  });
+
+}
+
+function adicionarCanal(){
+
+  const nome=document.getElementById("novoNome").value.trim();
+
+  const url=document.getElementById("novoURL").value.trim();
+
+  const poster=document.getElementById("novoPoster").value.trim()||"https://via.placeholder.com/160x90";
+
+  const senha18=document.getElementById("novaSenha18").value.trim();
+
+  const premium=document.getElementById("novoPremium").checked;
+
+  const codigoPremium=document.getElementById("novoPremiumCodigo").value.trim();
+
+  if(nome && url){ 
+
+    canais.push({nome,url,poster,senha18,premium,codigoPremium});
+
+    document.getElementById("novoNome").value=""; document.getElementById("novoURL").value=""; document.getElementById("novoPoster").value=""; document.getElementById("novaSenha18").value=""; document.getElementById("novoPremium").checked=false; document.getElementById("novoPremiumCodigo").value="";
+
+    render();
+
+  }
+
+}
+
+function remover(i){ if(confirm("Remover canal?")){ canais.splice(i,1); render(); } }
+
+function restaurarCanais(){ if(confirm("Restaurar canais originais?")){ canais=JSON.parse(JSON.stringify(CANAIS_PADRAO)); salvarCanais(); render(); } }
+
+function salvarCanais(){ localStorage.setItem("wolf_canais", JSON.stringify(canais)); }
+
+// GERENCIAR CÓDIGOS
+
+function renderTabelaCodigos(){
+
+  const tbody=document.querySelector("#codigoTable tbody"); tbody.innerHTML="";
+
+  codigos.forEach((c,i)=>{
+
+    const tr=document.createElement("tr");
+
+    tr.innerHTML=`<td>${i+1}</td><td>${c.email}</td><td>${c.codigo}</td><td><button onclick="removerCodigo(${i})">🗑️</button></td>`;
+
+    tbody.appendChild(tr);
+
+  });
+
+}
+
+function adicionarCodigo(){
+
+  const email=document.getElementById("novoUsuario").value.trim().toLowerCase();
+
+  const codigo=document.getElementById("novoCodigo").value.trim();
+
+  if(email && codigo){ codigos.push({email,codigo}); document.getElementById("novoUsuario").value=""; document.getElementById("novoCodigo").value=""; renderTabelaCodigos(); salvarCodigos(); }
+
+}
+
+function gerarCodigoRandom(){
+
+  const email=prompt("E-mail do usuário:");
+
+  if(!email) return;
+
+  const codigo=Math.random().toString(36).substring(2,10).toUpperCase();
+
+  codigos.push({email,codigo});
+
+  alert(`Código gerado para ${email}: ${codigo}`);
+
+  renderTabelaCodigos(); salvarCodigos();
+
+}
+
+function removerCodigo(i){ if(confirm("Remover código?")){ codigos.splice(i,1); renderTabelaCodigos(); salvarCodigos(); } }
+
+function restaurarCodigos(){ if(confirm("Restaurar todos os códigos?")){ codigos=JSON.parse(JSON.stringify(CODIGOS_PADRAO)); renderTabelaCodigos(); salvarCodigos(); } }
+
+function salvarCodigos(){ localStorage.setItem("wolf_codigos", JSON.stringify(codigos)); }
+
+</script>
+
 </body>
-</html>
 
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<title>Wolftv</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-<body>
-
-<h2>🐺 Wolftv Online</h2>
-
-<video controls autoplay width="100%">
-  <source src="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8">
-</video>
-
-</body>
 </html>
